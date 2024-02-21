@@ -1,7 +1,9 @@
 package server
 
 import (
+	"bankServerGO/utils"
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -38,11 +40,22 @@ func NewAPIServer(listenAddr string) *APIServer {
 }
 
 func (s *APIServer) HandleAccount(w http.ResponseWriter, r *http.Request) error {
-	return nil
+	method := r.Method
+	if method == "GET" {
+		return s.HandleGetAccount(w, r)
+	}
+	if method == "POST" {
+		return s.HandleCreateAccount(w, r)
+	}
+	if method == "DELETE" {
+		return s.HandleDeleteAccount(w, r)
+	}
+	return fmt.Errorf("method now allowed: %+s", method)
 }
 
 func (s *APIServer) HandleGetAccount(w http.ResponseWriter, r *http.Request) error {
-	return nil
+	account := utils.NewAccount("Vaibhav", "Mishra")
+	return WriteJSON(w, http.StatusOK, account)
 }
 
 func (s *APIServer) HandleCreateAccount(w http.ResponseWriter, r *http.Request) error {
