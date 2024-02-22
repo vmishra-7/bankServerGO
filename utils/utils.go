@@ -2,6 +2,7 @@ package utils
 
 import (
 	"math/rand"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -12,6 +13,7 @@ type Account struct {
 	LastName  string    `json:"lastName"`
 	Number    uuid.UUID `json:"number"`
 	Balance   int64     `json:"balance"`
+	CreatedAt time.Time  `json:"createdAt"`
 }
 
 func NewAccount(firstName, lastName string) *Account {
@@ -21,5 +23,6 @@ func NewAccount(firstName, lastName string) *Account {
 		FirstName: firstName,
 		LastName:  lastName,
 		Number:    uuID,
+		CreatedAt: time.Now().UTC(),
 	}
 }

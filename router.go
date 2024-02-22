@@ -2,6 +2,7 @@ package main
 
 import (
 	server "bankServerGO/server"
+	"bankServerGO/storage"
 	"log"
 	"net/http"
 
@@ -9,8 +10,12 @@ import (
 )
 
 func main() {
+	store, err := storage.NewPostgressConnection()
+	if err != nil {
+		log.Fatal(err)
+	}
 	router := mux.NewRouter()
-	s := server.NewAPIServer(":8080")
+	s := server.NewAPIServer(":8080", store)
 
 	router.HandleFunc("/account", server.MakeHTTPHandleFunc(s.HandleAccount))
 

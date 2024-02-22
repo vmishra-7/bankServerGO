@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bankServerGO/storage"
 	"bankServerGO/utils"
 	"encoding/json"
 	"fmt"
@@ -30,11 +31,13 @@ func MakeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 
 type APIServer struct {
 	ListenAddr string
+	Store      storage.Storage
 }
 
-func NewAPIServer(listenAddr string) *APIServer {
+func NewAPIServer(listenAddr string, store storage.Storage) *APIServer {
 	a := APIServer{
 		ListenAddr: listenAddr,
+		Store:      store,
 	}
 	return &a
 }
