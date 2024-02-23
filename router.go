@@ -14,6 +14,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if err:= store.Init(); err != nil {
+		log.Fatal(err)
+	}
 	router := mux.NewRouter()
 	s := server.NewAPIServer(":8080", store)
 
