@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+
+	"github.com/gorilla/mux"
 )
 
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
@@ -17,7 +20,7 @@ func WriteJSON(w http.ResponseWriter, status int, v any) error {
 type apiFunc func(http.ResponseWriter, *http.Request) error
 
 type apiError struct {
-	Error string
+	Error string `json:"error"`
 }
 
 func MakeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
@@ -43,17 +46,13 @@ func NewAPIServer(listenAddr string, store storage.Storage) *APIServer {
 }
 
 func (s *APIServer) HandleAccount(w http.ResponseWriter, r *http.Request) error {
-	method := r.Method
-	if method == "GET" {
+	if r.Method == "GET" {
 		return s.HandleGetAccount(w, r)
 	}
-	if method == "POST" {
+	if r.Method == "POST" {
 		return s.HandleCreateAccount(w, r)
 	}
-	if method == "DELETE" {
-		return s.HandleDeleteAccount(w, r)
-	}
-	return fmt.Errorf("method now allowed: %+s", method)
+	return fmt.Errorf("method now allowed: %+s", r.Method)
 }
 
 func (s *APIServer) HandleGetAccount(w http.ResponseWriter, r *http.Request) error {
@@ -62,6 +61,28 @@ func (s *APIServer) HandleGetAccount(w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 	return WriteJSON(w, http.StatusOK, accounts)
+}
+
+func (s *APIServer) HandleGetAccountByID(w http.ResponseWriter, r *http.Request) error {
+	if r.Method == "GET" {
+		reqID := mux.Vars(r)["id"]
+		id, err := strconv.Atoi(reqID)
+
+		if err != nil {
+			return fmt.Errorf("invalid id %s", reqID)
+		}
+
+		account, err := s.Store.GetAccountByID(id)
+		if err != nil {
+			return err
+		}
+
+		return WriteJSON(w, http.StatusOK, account)
+	}
+	if r.Method == "DELETE" {
+		return s.HandleDeleteAccount(w, r)
+	}
+	return fmt.Errorf("method not allowed %s", r.Method)
 }
 
 func (s *APIServer) HandleCreateAccount(w http.ResponseWriter, r *http.Request) error {
@@ -76,5 +97,15 @@ func (s *APIServer) HandleCreateAccount(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *APIServer) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) error {
-	return nil
+	reqID := mux.Vars(r)["id"]
+	id, err := strconv.Atoi(reqID)
+	if err != nil {
+		return fmt.Errorf("invalid id %s", reqID)
+	}
+	resp := s.Store.DeletAccount(id)
+	if resp != nil {
+		return resp
+	}
+
+	return WriteJSON(w, http.StatusOK, map[string]int{"deleted": id})
 }

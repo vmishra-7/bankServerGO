@@ -3,6 +3,7 @@ package storage
 import (
 	"bankServerGO/utils"
 	"database/sql"
+	"fmt"
 
 	_ "github.com/lib/pq"
 )
@@ -58,7 +59,7 @@ func (s *PostgressStore) CreateAccount(account *utils.Account) error {
 	(first_name, last_name, number, balance, created_at)
 	values ($1, $2, $3, $4, $5)`
 
-	_, err := s.db.Query(query, account.FirstName,
+	_, err := s.db.Exec(query, account.FirstName,
 		account.LastName, account.Number,
 		account.Balance, account.CreatedAt)
 
@@ -69,6 +70,10 @@ func (s *PostgressStore) CreateAccount(account *utils.Account) error {
 }
 
 func (s *PostgressStore) DeletAccount(id int) error {
+	_, err := s.db.Exec("delete from account where id = $1", id)
+	if err != nil {
+		return fmt.Errorf("account %d not found", id)
+	}
 	return nil
 }
 
@@ -77,7 +82,20 @@ func (s *PostgressStore) UpdateAccount(account *utils.Account) error {
 }
 
 func (s *PostgressStore) GetAccountByID(id int) (*utils.Account, error) {
-	return nil, nil
+	account := new(utils.Account)
+	resp := s.db.QueryRow("select * from account where id = $1", id)
+	err := resp.Scan(
+		&account.ID,
+		&account.FirstName,
+		&account.LastName,
+		&account.Number,
+		&account.Balance,
+		&account.CreatedAt)
+	
+	if err != nil {
+		return nil, fmt.Errorf("account %d not found", id)
+	}
+	return account, nil
 }
 
 func (s *PostgressStore) GetAccounts() ([]*utils.Account, error) {

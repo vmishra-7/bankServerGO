@@ -21,6 +21,7 @@ func main() {
 	s := server.NewAPIServer(":8080", store)
 
 	router.HandleFunc("/account", server.MakeHTTPHandleFunc(s.HandleAccount))
+	router.HandleFunc("/account/{id}", server.MakeHTTPHandleFunc(s.HandleGetAccountByID))
 
 	log.Println("Starting up the server at port:", s.ListenAddr)
 	http.ListenAndServe(s.ListenAddr, router)
