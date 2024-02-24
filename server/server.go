@@ -91,6 +91,7 @@ func (s *APIServer) HandleCreateAccount(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		return err
 	}
+	defer r.Body.Close()
 	account := utils.NewAccount(createAccRequest.FirstName, createAccRequest.LastName)
 	s.Store.CreateAccount(account)
 	return WriteJSON(w, http.StatusOK, account)
@@ -108,4 +109,15 @@ func (s *APIServer) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) 
 	}
 
 	return WriteJSON(w, http.StatusOK, map[string]int{"deleted": id})
+}
+
+func (s *APIServer) HandleTransferRequest(w http.ResponseWriter, r *http.Request) error {
+	transferReq := new(utils.TranserRequest)
+	err := json.NewDecoder(r.Body).Decode(transferReq)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
+
+	return WriteJSON(w, http.StatusOK, transferReq)
 }
