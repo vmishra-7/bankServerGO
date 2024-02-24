@@ -6,6 +6,11 @@ import (
 	"github.com/google/uuid"
 )
 
+type TranserRequest struct {
+	AccountNumber uuid.UUID `json:"accountNumber"`
+	Amount        int       `json:"amount"`
+}
+
 type CreateAccountRequest struct {
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`

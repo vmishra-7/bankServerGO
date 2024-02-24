@@ -14,13 +14,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err:= store.Init(); err != nil {
+	if err := store.Init(); err != nil {
 		log.Fatal(err)
 	}
-	router := mux.NewRouter()
+	router := mux.NewRouter()	
 	s := server.NewAPIServer(":8080", store)
 
 	router.HandleFunc("/account", server.MakeHTTPHandleFunc(s.HandleAccount))
+	router.HandleFunc("/account/{id}", server.MakeHTTPHandleFunc(s.HandleGetAccountByID))
+	router.HandleFunc("/transfer", server.MakeHTTPHandleFunc(s.HandleTransferRequest))
 
 	log.Println("Starting up the server at port:", s.ListenAddr)
 	http.ListenAndServe(s.ListenAddr, router)
