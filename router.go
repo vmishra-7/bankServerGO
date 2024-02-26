@@ -1,7 +1,7 @@
 package main
 
 import (
-	server "bankServerGO/server"
+	srv "bankServerGO/server"
 	"bankServerGO/storage"
 	"log"
 	"net/http"
@@ -18,11 +18,11 @@ func main() {
 		log.Fatal(err)
 	}
 	router := mux.NewRouter()	
-	s := server.NewAPIServer(":8080", store)
+	s := srv.NewAPIServer(":8080", store)
 
-	router.HandleFunc("/account", server.MakeHTTPHandleFunc(s.HandleAccount))
-	router.HandleFunc("/account/{id}", server.MakeHTTPHandleFunc(s.HandleGetAccountByID))
-	router.HandleFunc("/transfer", server.MakeHTTPHandleFunc(s.HandleTransferRequest))
+	router.HandleFunc("/account", srv.MakeHTTPHandleFunc(s.HandleAccount))
+	router.HandleFunc("/account/{id}", srv.WithJWT(srv.MakeHTTPHandleFunc(s.HandleGetAccountByID)))
+	router.HandleFunc("/transfer", srv.MakeHTTPHandleFunc(s.HandleTransferRequest))
 
 	log.Println("Starting up the server at port:", s.ListenAddr)
 	http.ListenAndServe(s.ListenAddr, router)

@@ -5,9 +5,12 @@ import (
 	"bankServerGO/utils"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"strconv"
 
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 )
 
@@ -120,4 +123,31 @@ func (s *APIServer) HandleTransferRequest(w http.ResponseWriter, r *http.Request
 	defer r.Body.Close()
 
 	return WriteJSON(w, http.StatusOK, transferReq)
+}
+
+func WithJWT(handlerFunc http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Into JWT middleware!")
+
+		tokenString := r.Header.Get("Authorization")
+		_, err := validateJWT(tokenString)
+
+		if err != nil {
+			WriteJSON(w, http.StatusForbidden, apiError{Error: "inavlid token"})
+			return
+		}
+		handlerFunc(w, r)
+	}
+}
+
+func validateJWT(tokenString string) (*jwt.Token, error) {
+	secretKey := os.Getenv("jsonAPISecretKEY")
+	return  jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Don't forget to validate the alg is what you expect:
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		// hmacSampleSecret is a []byte containing your secret, e.g. []byte("my_secret_key")
+		return []byte(secretKey), nil
+	})
 }
