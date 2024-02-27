@@ -125,24 +125,45 @@ func (s *APIServer) HandleTransferRequest(w http.ResponseWriter, r *http.Request
 	return WriteJSON(w, http.StatusOK, transferReq)
 }
 
-func WithJWT(handlerFunc http.HandlerFunc) http.HandlerFunc {
+func WithJWT(handlerFunc http.HandlerFunc, s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Into JWT middleware!")
 
 		tokenString := r.Header.Get("Authorization")
-		_, err := validateJWT(tokenString)
+		token, err := validateJWT(tokenString)
 
 		if err != nil {
-			WriteJSON(w, http.StatusForbidden, apiError{Error: "inavlid token"})
+			WriteJSON(w, http.StatusForbidden, apiError{Error: "permission denied"})
 			return
 		}
+
+		if token.Valid {
+			WriteJSON(w, http.StatusForbidden, apiError{Error: "permission denied"})
+			return
+		}
+
+		userID := mux.Vars(r)["id"]
+		id, err := strconv.Atoi(userID)
+		if err != nil {
+			WriteJSON(w, http.StatusForbidden, apiError{Error: "permission denied"})
+			return
+		}
+		account, err := s.GetAccountByID(id)
+		if err != nil {
+			WriteJSON(w, http.StatusForbidden, apiError{Error: "permission denied"})
+			return
+		}
+
+		//account claim check work to done
+		fmt.Println(account)
+
 		handlerFunc(w, r)
 	}
 }
 
 func validateJWT(tokenString string) (*jwt.Token, error) {
 	secretKey := os.Getenv("jsonAPISecretKEY")
-	return  jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	return	jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Don't forget to validate the alg is what you expect:
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])

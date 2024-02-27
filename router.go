@@ -17,11 +17,11 @@ func main() {
 	if err := store.Init(); err != nil {
 		log.Fatal(err)
 	}
-	router := mux.NewRouter()	
+	router := mux.NewRouter()
 	s := srv.NewAPIServer(":8080", store)
 
 	router.HandleFunc("/account", srv.MakeHTTPHandleFunc(s.HandleAccount))
-	router.HandleFunc("/account/{id}", srv.WithJWT(srv.MakeHTTPHandleFunc(s.HandleGetAccountByID)))
+	router.HandleFunc("/account/{id}", srv.WithJWT(srv.MakeHTTPHandleFunc(s.HandleGetAccountByID), s.Store))
 	router.HandleFunc("/transfer", srv.MakeHTTPHandleFunc(s.HandleTransferRequest))
 
 	log.Println("Starting up the server at port:", s.ListenAddr)
