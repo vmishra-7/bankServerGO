@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 )
 
@@ -13,6 +14,7 @@ type Storage interface { //will help in migrating to any database, refer to serv
 	DeletAccount(int) error
 	UpdateAccount(*utils.Account) error
 	GetAccountByID(int) (*utils.Account, error)
+	GetAccountByNumber(uuid.UUID) (*utils.Account, error)
 	GetAccounts() ([]*utils.Account, error)
 }
 
@@ -79,6 +81,23 @@ func (s *PostgressStore) DeletAccount(id int) error {
 
 func (s *PostgressStore) UpdateAccount(account *utils.Account) error {
 	return nil
+}
+
+func (s *PostgressStore) GetAccountByNumber(num uuid.UUID) (*utils.Account, error) {
+	account := new(utils.Account)
+	resp := s.db.QueryRow("select * from account where number = $1", num)
+	err := resp.Scan(
+		&account.ID,
+		&account.FirstName,
+		&account.LastName,
+		&account.Number,
+		&account.Balance,
+		&account.CreatedAt)
+	
+	if err != nil {
+		return nil, fmt.Errorf("account %d not found", num)
+	}
+	return account, nil
 }
 
 func (s *PostgressStore) GetAccountByID(id int) (*utils.Account, error) {

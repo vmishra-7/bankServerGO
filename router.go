@@ -20,6 +20,7 @@ func main() {
 	router := mux.NewRouter()
 	s := srv.NewAPIServer(":8080", store)
 
+	router.HandleFunc("/login", srv.MakeHTTPHandleFunc(s.HandleLogin))
 	router.HandleFunc("/account", srv.MakeHTTPHandleFunc(s.HandleAccount))
 	router.HandleFunc("/account/{id}", srv.WithJWT(srv.MakeHTTPHandleFunc(s.HandleGetAccountByID), s.Store))
 	router.HandleFunc("/transfer", srv.MakeHTTPHandleFunc(s.HandleTransferRequest))
