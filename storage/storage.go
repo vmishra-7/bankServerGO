@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 )
 
@@ -13,6 +14,7 @@ type Storage interface { //will help in migrating to any database, refer to serv
 	DeletAccount(int) error
 	UpdateAccount(*utils.Account) error
 	GetAccountByID(int) (*utils.Account, error)
+	GetAccountByNumber(uuid.UUID) (*utils.Account, error)
 	GetAccounts() ([]*utils.Account, error)
 }
 
@@ -47,7 +49,8 @@ func (s *PostgressStore) CreateAccountTable() error {
 		last_name varchar(50),
 		number UUID,
 		balance serial,
-		created_at timestamp
+		created_at timestamp,
+		hashed_password varchar(72)
 	)`
 
 	_, err := s.db.Exec(query)
@@ -56,12 +59,12 @@ func (s *PostgressStore) CreateAccountTable() error {
 
 func (s *PostgressStore) CreateAccount(account *utils.Account) error {
 	query := `Insert into account
-	(first_name, last_name, number, balance, created_at)
-	values ($1, $2, $3, $4, $5)`
+	(first_name, last_name, number, balance, created_at, hashed_password)
+	values ($1, $2, $3, $4, $5, $6)`
 
 	_, err := s.db.Exec(query, account.FirstName,
 		account.LastName, account.Number,
-		account.Balance, account.CreatedAt)
+		account.Balance, account.CreatedAt, account.HashedPassword)
 
 	if err != nil {
 		return err
@@ -81,6 +84,24 @@ func (s *PostgressStore) UpdateAccount(account *utils.Account) error {
 	return nil
 }
 
+func (s *PostgressStore) GetAccountByNumber(num uuid.UUID) (*utils.Account, error) {
+	account := new(utils.Account)
+	resp := s.db.QueryRow("select * from account where number = $1", num)
+	err := resp.Scan(
+		&account.ID,
+		&account.FirstName,
+		&account.LastName,
+		&account.Number,
+		&account.Balance,
+		&account.CreatedAt,
+		&account.HashedPassword)
+	
+	if err != nil {
+		return nil, fmt.Errorf("account %s not found", num)
+	}
+	return account, nil
+}
+
 func (s *PostgressStore) GetAccountByID(id int) (*utils.Account, error) {
 	account := new(utils.Account)
 	resp := s.db.QueryRow("select * from account where id = $1", id)
@@ -90,7 +111,8 @@ func (s *PostgressStore) GetAccountByID(id int) (*utils.Account, error) {
 		&account.LastName,
 		&account.Number,
 		&account.Balance,
-		&account.CreatedAt)
+		&account.CreatedAt,
+		&account.HashedPassword)
 	
 	if err != nil {
 		return nil, fmt.Errorf("account %d not found", id)
@@ -112,7 +134,8 @@ func (s *PostgressStore) GetAccounts() ([]*utils.Account, error) {
 			&account.LastName,
 			&account.Number,
 			&account.Balance,
-			&account.CreatedAt)
+			&account.CreatedAt,
+			&account.HashedPassword)
 
 		if err != nil {
 			return nil, err

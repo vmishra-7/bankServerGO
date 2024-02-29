@@ -5,9 +5,14 @@ import (
 	"bankServerGO/utils"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"strconv"
+	"time"
 
+	jwt "github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -45,6 +50,36 @@ func NewAPIServer(listenAddr string, store storage.Storage) *APIServer {
 	return &a
 }
 
+func (s *APIServer) HandleLogin(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != "POST" {
+		return fmt.Errorf("method now allowed: %+s", r.Method)
+	}
+
+	loginReq := new(utils.LoginRequest)
+	if err := json.NewDecoder(r.Body).Decode(loginReq); err != nil {
+		return err
+	}
+
+	acc, err := s.Store.GetAccountByNumber(loginReq.Number)
+	if err != nil {
+		return err
+	}
+
+	if !acc.ValidatePassword(loginReq.Passowrd) {
+		return fmt.Errorf("inavlid user or password")
+	}
+	token, err := createJWT(acc)
+	if err != nil {
+		return err
+	}
+
+	resp := utils.LoginResponse{
+		Number: acc.Number,
+		Token: token,
+	}
+	return WriteJSON(w, http.StatusAccepted, resp)
+}
+
 func (s *APIServer) HandleAccount(w http.ResponseWriter, r *http.Request) error {
 	if r.Method == "GET" {
 		return s.HandleGetAccount(w, r)
@@ -52,6 +87,7 @@ func (s *APIServer) HandleAccount(w http.ResponseWriter, r *http.Request) error 
 	if r.Method == "POST" {
 		return s.HandleCreateAccount(w, r)
 	}
+
 	return fmt.Errorf("method now allowed: %+s", r.Method)
 }
 
@@ -60,6 +96,7 @@ func (s *APIServer) HandleGetAccount(w http.ResponseWriter, r *http.Request) err
 	if err != nil {
 		return err
 	}
+
 	return WriteJSON(w, http.StatusOK, accounts)
 }
 
@@ -82,18 +119,25 @@ func (s *APIServer) HandleGetAccountByID(w http.ResponseWriter, r *http.Request)
 	if r.Method == "DELETE" {
 		return s.HandleDeleteAccount(w, r)
 	}
+
 	return fmt.Errorf("method not allowed %s", r.Method)
 }
 
 func (s *APIServer) HandleCreateAccount(w http.ResponseWriter, r *http.Request) error {
-	createAccRequest := new(utils.CreateAccountRequest)
-	err := json.NewDecoder(r.Body).Decode(createAccRequest)
+	accReq := new(utils.CreateAccountRequest)
+	err := json.NewDecoder(r.Body).Decode(accReq)
 	if err != nil {
 		return err
 	}
 	defer r.Body.Close()
-	account := utils.NewAccount(createAccRequest.FirstName, createAccRequest.LastName)
-	s.Store.CreateAccount(account)
+	account, err := utils.NewAccount(accReq.FirstName, accReq.LastName, accReq.Password)
+	if err != nil {
+		return err
+	}
+	if err := s.Store.CreateAccount(account); err != nil {
+		return err
+	}
+	
 	return WriteJSON(w, http.StatusOK, account)
 }
 
@@ -120,4 +164,68 @@ func (s *APIServer) HandleTransferRequest(w http.ResponseWriter, r *http.Request
 	defer r.Body.Close()
 
 	return WriteJSON(w, http.StatusOK, transferReq)
+}
+
+func WithJWT(handlerFunc http.HandlerFunc, s storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Into JWT middleware!")
+
+		tokenString := r.Header.Get("Authorization")
+		token, err := validateJWT(tokenString)
+
+		if err != nil {
+			WriteJSON(w, http.StatusForbidden, apiError{Error: "permission denied"})
+			return
+		}
+
+		if !token.Valid {
+			WriteJSON(w, http.StatusForbidden, apiError{Error: "permission denied"})
+			return
+		}
+
+		userID := mux.Vars(r)["id"]
+		id, err := strconv.Atoi(userID)
+		if err != nil {
+			WriteJSON(w, http.StatusForbidden, apiError{Error: "permission denied"})
+			return
+		}
+		account, err := s.GetAccountByID(id)
+		if err != nil {
+			WriteJSON(w, http.StatusForbidden, apiError{Error: "permission denied"})
+			return
+		}
+
+		claims := token.Claims.(jwt.MapClaims)
+		accNum, _ := uuid.Parse(claims["accountNumber"].(string))
+		if account.Number != accNum {
+			WriteJSON(w, http.StatusForbidden, apiError{Error: "permission denied"})
+			return
+		}
+
+		handlerFunc(w, r)
+	}
+}
+
+func createJWT(account *utils.Account) (string, error) {
+	claims := &jwt.MapClaims{
+		"expiresAt":     time.Now().Add(time.Hour * 24),
+		"accountNumber": account.Number,
+	}
+
+	secret := os.Getenv("jsonAPISecretKEY")
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	return token.SignedString([]byte(secret))
+}
+
+func validateJWT(tokenString string) (*jwt.Token, error) {
+	secretKey := os.Getenv("jsonAPISecretKEY")
+	return jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Don't forget to validate the alg is what you expect:
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		// hmacSampleSecret is a []byte containing your secret, e.g. []byte("my_secret_key")
+		return []byte(secretKey), nil
+	})
 }
