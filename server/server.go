@@ -60,7 +60,24 @@ func (s *APIServer) HandleLogin(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	return WriteJSON(w, http.StatusAccepted, loginReq)
+	acc, err := s.Store.GetAccountByNumber(loginReq.Number)
+	if err != nil {
+		return err
+	}
+
+	if !acc.ValidatePassword(loginReq.Passowrd) {
+		return fmt.Errorf("inavlid user or password")
+	}
+	token, err := createJWT(acc)
+	if err != nil {
+		return err
+	}
+
+	resp := utils.LoginResponse{
+		Number: acc.Number,
+		Token: token,
+	}
+	return WriteJSON(w, http.StatusAccepted, resp)
 }
 
 func (s *APIServer) HandleAccount(w http.ResponseWriter, r *http.Request) error {

@@ -12,6 +12,10 @@ type LoginRequest struct {
 	Passowrd string    `json:"password"`
 }
 
+type LoginResponse struct {
+	Number uuid.UUID `json:"number"`
+	Token  string    `json:"token"`
+}
 type TranserRequest struct {
 	ToAccount uuid.UUID `json:"toAccount"`
 	Amount    int       `json:"amount"`
@@ -47,4 +51,8 @@ func NewAccount(firstName, lastName, passowrd string) (*Account, error) {
 		CreatedAt:      time.Now().UTC(),
 		HashedPassword: string(hsdPswd),
 	}, nil
+}
+
+func (a *Account) ValidatePassword(pswd string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(a.HashedPassword), []byte(pswd)) == nil
 }
